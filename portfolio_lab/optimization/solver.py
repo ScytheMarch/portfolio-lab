@@ -199,7 +199,14 @@ def optimize_portfolio(
     # Clean up tiny weights
     w_opt = np.where(np.abs(w_opt) < 1e-6, 0, w_opt)
     # Renormalize to sum to 1
-    w_opt = w_opt / w_opt.sum()
+    w_sum = w_opt.sum()
+    if w_sum < 1e-10:
+        return OptimizationResult(
+            success=False,
+            objective=objective,
+            message="Optimizer returned near-zero weights. Problem may be infeasible.",
+        )
+    w_opt = w_opt / w_sum
 
     port_ret = float(w_opt @ mu)
     port_vol = float(np.sqrt(w_opt @ sigma @ w_opt))

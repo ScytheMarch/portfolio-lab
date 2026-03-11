@@ -33,11 +33,12 @@ def covariance_matrix(
     ppy = periods_per_year or _infer_ppy(returns)
 
     if method == "ewm" and ewm_span is not None:
-        cov = returns.ewm(span=ewm_span).cov().iloc[-len(returns.columns):]
-        # Reshape from multi-index to square matrix
+        # EWM covariance returns a MultiIndex DataFrame; extract the last snapshot
+        ewm_cov = returns.ewm(span=ewm_span).cov()
         tickers = returns.columns.tolist()
-        cov = cov.droplevel(0)
-        cov = cov.loc[tickers, tickers]
+        # The last date in level 0 contains the most recent covariance estimate
+        last_date = ewm_cov.index.get_level_values(0)[-1]
+        cov = ewm_cov.loc[last_date].loc[tickers, tickers]
     else:
         cov = returns.cov()
 

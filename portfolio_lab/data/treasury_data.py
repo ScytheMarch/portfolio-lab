@@ -129,7 +129,7 @@ def fetch_treasury_yields() -> dict[str, Optional[float]]:
     """
     yield_tickers = {
         "3-Month": "^IRX",
-        "2-Year": "^FVX",  # Note: ^FVX is 5-year; 2-year not directly available
+        # Note: yfinance has no direct 2-Year ticker; omitted to avoid misleading data
         "5-Year": "^FVX",
         "10-Year": "^TNX",
         "30-Year": "^TYX",

@@ -121,8 +121,12 @@ def _parse_ff5_csv(raw: str, frequency: str) -> Optional[pd.DataFrame]:
     records = []
     for line in data_lines:
         parts = [p.strip() for p in line.split(",")]
-        if len(parts) >= 6:
-            records.append(parts[:7])  # date + 5 factors + RF
+        if len(parts) >= 7:  # require all 7 columns: date + 5 factors + RF
+            records.append(parts[:7])
+
+    if not records:
+        logger.warning("No valid 7-column rows found in FF5 data.")
+        return None
 
     col_names = header[:7] if len(header) >= 7 else header
     # First column is the date

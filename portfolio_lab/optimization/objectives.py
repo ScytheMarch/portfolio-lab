@@ -21,7 +21,8 @@ def negative_sharpe(
     port_return = weights @ expected_returns
     port_vol = np.sqrt(weights @ cov_matrix @ weights)
     if port_vol < 1e-10:
-        return 0.0
+        # Near-zero vol: return large value to discourage degenerate solutions
+        return 1e6
     return -(port_return - risk_free_rate) / port_vol
 
 
@@ -72,5 +73,5 @@ def negative_diversification_ratio(
     weighted_vol = weights @ asset_vols
     port_vol = np.sqrt(weights @ cov_matrix @ weights)
     if port_vol < 1e-10:
-        return 0.0
+        return 1e6
     return -(weighted_vol / port_vol)

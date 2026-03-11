@@ -84,16 +84,12 @@ class MonteCarloResult:
         self._compute_drawdown_stats()
 
     def _compute_drawdown_stats(self):
-        """Compute max drawdown statistics across simulations."""
-        # Compute max drawdown for each path
-        max_dds = []
-        for i in range(self.nominal_paths.shape[0]):
-            path = self.nominal_paths[i]
-            cummax = np.maximum.accumulate(path)
-            dd = (path - cummax) / np.where(cummax > 0, cummax, 1)
-            max_dds.append(float(np.min(dd)))
+        """Compute max drawdown statistics across simulations (vectorized)."""
+        paths = self.nominal_paths
+        cummax = np.maximum.accumulate(paths, axis=1)
+        dd = (paths - cummax) / np.where(cummax > 0, cummax, 1)
+        max_dds = np.min(dd, axis=1)  # worst drawdown per simulation
 
-        max_dds = np.array(max_dds)
         self.stats["max_drawdown_mean"] = float(np.mean(max_dds))
         self.stats["max_drawdown_median"] = float(np.median(max_dds))
         self.stats["max_drawdown_p10"] = float(np.percentile(max_dds, 10))  # worst 10%

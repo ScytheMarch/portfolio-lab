@@ -86,6 +86,24 @@ def estimate_expected_returns(
             return dict(zip(tickers, ewm.values)), label
         return {tickers[0]: ewm}, label
 
+    elif method == "capm":
+        # CAPM: E[R_i] = RF + beta_i * (E[R_m] - RF)
+        # Equity risk premium: use factor data if available, else default ~6%
+        market_premium = 0.06
+        if factor_data is not None and "Mkt-RF" in factor_data.columns:
+            market_premium = float(factor_data["Mkt-RF"].mean()) * periods_per_year
+        result = {}
+        # Use equal-weighted portfolio as market proxy if no better option
+        mkt_proxy = returns.mean(axis=1)
+        var_mkt = mkt_proxy.var()
+        for t in tickers:
+            if var_mkt > 0:
+                beta = returns[t].cov(mkt_proxy) / var_mkt
+            else:
+                beta = 1.0
+            result[t] = risk_free_rate + beta * market_premium
+        return result, label
+
     elif method == "ff5_implied":
         loadings = estimate_factor_loadings(returns, factor_data)
         result = {}
@@ -218,7 +236,11 @@ def run_full_scenario(
     port_vol = float(portfolio_volatility(weights, cov_arr))
     port_gross_ret = float(weights @ exp_returns_arr)
     port_er = float(weights @ er_arr)
-    port_net_ret = port_gross_ret - port_er - advisory_fee
+    # NOTE: yfinance adjusted prices already reflect fund expense ratios (NAV is net
+    # of ER). So historical return estimates from price data are already net of ER.
+    # We only subtract the advisory fee here to avoid double-counting.
+    # port_er is still tracked for reporting transparency.
+    port_net_ret = port_gross_ret - advisory_fee
 
     # Income
     income_yd, income_contribs = portfolio_income_yield(fund_info, weights_dict)

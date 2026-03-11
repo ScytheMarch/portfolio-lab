@@ -168,8 +168,6 @@ def exponentially_weighted_return(
     ppy = periods_per_year or _infer_periods_per_year(returns)
     ewm_mean = returns.ewm(span=span).mean().iloc[-1]
     if annualize:
-        if isinstance(ewm_mean, pd.Series):
-            return ewm_mean * ppy
         return ewm_mean * ppy
     return ewm_mean
 

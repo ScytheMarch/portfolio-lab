@@ -124,7 +124,8 @@ def run_factor_regression(
     result.alpha_t_stat = float(t_stats[0])
     result.r_squared = float(r_squared)
     result.adj_r_squared = float(adj_r_squared)
-    result.residual_vol = float(np.std(residuals)) * np.sqrt(annualization_factor)
+    # Use sqrt(MSE) for residual vol — accounts for degrees of freedom (n - k)
+    result.residual_vol = float(np.sqrt(mse)) * np.sqrt(annualization_factor)
     result.n_obs = n
 
     for i, factor_name in enumerate(X_cols):

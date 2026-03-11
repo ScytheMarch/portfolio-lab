@@ -53,12 +53,26 @@ def fetch_price_data(
         raise DataFetchError(f"No data returned for tickers: {tickers}")
 
     # Handle single vs multi-ticker yfinance output
+    # yfinance >= 0.2.40 may return MultiIndex with (Price, Ticker) structure
     if isinstance(raw.columns, pd.MultiIndex):
-        prices = raw["Close"].copy()
+        # Try both possible MultiIndex levels: ("Close", ticker) or (ticker, "Close")
+        if "Close" in raw.columns.get_level_values(0):
+            prices = raw["Close"].copy()
+        elif "Close" in raw.columns.get_level_values(1):
+            prices = raw.xs("Close", axis=1, level=1).copy()
+        else:
+            # Fallback: assume first level is price type
+            prices = raw.iloc[:, :len(tickers)].copy()
+            prices.columns = tickers
     else:
         # Single ticker returns flat columns
-        prices = raw[["Close"]].copy()
-        prices.columns = [tickers[0]]
+        if "Close" in raw.columns:
+            prices = raw[["Close"]].copy()
+            prices.columns = [tickers[0]]
+        else:
+            prices = raw.copy()
+            if len(prices.columns) == 1:
+                prices.columns = [tickers[0]]
 
     # Validate each ticker
     valid_tickers = []
@@ -116,7 +130,11 @@ def fetch_dividend_data(
             ticker_obj = yf.Ticker(t)
             divs = ticker_obj.dividends
             if divs is not None and not divs.empty:
-                # Filter to date range
+                # Filter to date range; handle tz-aware index from yfinance
+                idx = divs.index
+                if idx.tz is not None:
+                    idx = idx.tz_localize(None)
+                    divs = divs.set_axis(idx)
                 mask = (divs.index >= start) & (divs.index <= end)
                 result[t] = divs.loc[mask]
             else:

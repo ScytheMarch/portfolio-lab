@@ -10,8 +10,8 @@ python -m venv venv
 source venv/bin/activate  # Linux/Mac
 venv\Scripts\activate     # Windows
 
-# Install dependencies
-pip install -r portfolio_lab/requirements.txt
+# Install package and all dependencies (from the repo root)
+pip install -e .
 
 # Run the application
 streamlit run portfolio_lab/app.py
