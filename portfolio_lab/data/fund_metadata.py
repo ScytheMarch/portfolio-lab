@@ -80,25 +80,49 @@ def _parse_fund_info(ticker: str, info: dict) -> FundInfo:
     # Asset class inference
     fund.asset_class = _infer_asset_class(fund.category, fund.quote_type, ticker)
 
-    # Expense ratio
+    # Expense ratio — try multiple yfinance fields in priority order.
+    # annualReportExpenseRatio: decimal (0.0003 = 0.03%) — rare, but correct when present
+    # netExpenseRatio: percentage (0.03 = 0.03%) — most common for ETFs, needs /100
+    # expenseRatio: varies by yfinance version
     er = info.get("annualReportExpenseRatio")
     if er is not None and isinstance(er, (int, float)) and er >= 0:
         fund.expense_ratio = float(er)
     else:
-        # Try alternate field names
-        er2 = info.get("expenseRatio")
-        if er2 is not None and isinstance(er2, (int, float)) and er2 >= 0:
-            fund.expense_ratio = float(er2)
+        net_er = info.get("netExpenseRatio")
+        if net_er is not None and isinstance(net_er, (int, float)) and net_er >= 0:
+            # netExpenseRatio is in percentage points (0.03 = 0.03%), convert to decimal
+            fund.expense_ratio = float(net_er) / 100.0
         else:
-            warnings.append(
-                f"Expense ratio not available for {ticker}. "
-                "Manual input recommended. Do NOT assume zero."
-            )
+            er2 = info.get("expenseRatio")
+            if er2 is not None and isinstance(er2, (int, float)) and er2 >= 0:
+                fund.expense_ratio = float(er2)
+            else:
+                # Equities don't have expense ratios — only warn for funds/ETFs
+                qt = info.get("quoteType", "")
+                if qt in ("ETF", "MUTUALFUND"):
+                    warnings.append(
+                        f"Expense ratio not available for {ticker}. "
+                        "Manual input recommended. Do NOT assume zero."
+                    )
+                # For individual equities, expense ratio is correctly None/0
 
-    # Dividend yield
-    dy = info.get("yield") or info.get("dividendYield") or info.get("trailingAnnualDividendYield")
-    if dy is not None and isinstance(dy, (int, float)):
-        fund.dividend_yield = float(dy)
+    # Dividend yield — yfinance fields have DIFFERENT units:
+    #   "yield": decimal (0.0163 = 1.63%) — ETFs/funds only, None for equities
+    #   "dividendYield": percentage (1.63 = 1.63%) — needs /100
+    #   "trailingAnnualDividendYield": decimal (0.0163 = 1.63%) — most reliable
+    # Priority: use "yield" (already decimal) > "trailingAnnualDividendYield" (decimal)
+    # > "dividendYield" (needs conversion)
+    dy_yield = info.get("yield")  # decimal, ETFs only
+    dy_trailing = info.get("trailingAnnualDividendYield")  # decimal
+    dy_pct = info.get("dividendYield")  # percentage, needs /100
+
+    if dy_yield is not None and isinstance(dy_yield, (int, float)) and dy_yield >= 0:
+        fund.dividend_yield = float(dy_yield)
+    elif dy_trailing is not None and isinstance(dy_trailing, (int, float)) and dy_trailing >= 0:
+        fund.dividend_yield = float(dy_trailing)
+    elif dy_pct is not None and isinstance(dy_pct, (int, float)) and dy_pct >= 0:
+        # dividendYield is in percentage points, convert to decimal
+        fund.dividend_yield = float(dy_pct) / 100.0
     else:
         warnings.append(f"Dividend yield not available for {ticker}.")
 
