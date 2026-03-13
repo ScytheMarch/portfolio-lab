@@ -348,14 +348,21 @@ def terminal_value_distribution_chart(
     target_value: Optional[float] = None,
 ) -> go.Figure:
     """
-    Histogram of Monte Carlo terminal values with std deviation bands
-    and key percentile markers.
+    Histogram of Monte Carlo terminal values with std deviation bands,
+    percentile markers, and loss/goal miss probabilities.
     """
+    n = len(terminal_values)
     mean = float(np.mean(terminal_values))
     std = float(np.std(terminal_values))
     median = float(np.median(terminal_values))
     p10 = float(np.percentile(terminal_values, 10))
     p90 = float(np.percentile(terminal_values, 90))
+
+    # Loss and goal probabilities
+    prob_loss = float(np.sum(terminal_values < initial_investment) / n) * 100
+    goal_miss_pct = None
+    if target_value is not None and target_value > 0:
+        goal_miss_pct = float(np.sum(terminal_values < target_value) / n) * 100
 
     fig = go.Figure()
 
@@ -392,18 +399,29 @@ def terminal_value_distribution_chart(
     fig.add_vline(x=p90, line_dash="dot", line_color="#d62728", line_width=1,
                   annotation_text=f"90th: ${p90:,.0f}", annotation_position="bottom right")
 
-    # Initial investment reference
-    fig.add_vline(x=initial_investment, line_dash="dashdot", line_color="gray", line_width=1,
-                  annotation_text=f"Initial: ${initial_investment:,.0f}")
+    # Initial investment reference with loss probability
+    loss_label = f"Initial: ${initial_investment:,.0f} | {prob_loss:.1f}% lost money"
+    fig.add_vline(x=initial_investment, line_dash="dashdot", line_color="gray", line_width=2,
+                  annotation_text=loss_label)
 
-    # Target value if set
-    if target_value is not None and target_value > 0:
+    # Target value with miss rate
+    if target_value is not None and target_value > 0 and goal_miss_pct is not None:
+        target_label = (
+            f"Target: ${target_value:,.0f} | "
+            f"{goal_miss_pct:.1f}% missed goal"
+        )
         fig.add_vline(x=target_value, line_dash="solid", line_color="#9467bd", line_width=2,
-                      annotation_text=f"Target: ${target_value:,.0f}",
+                      annotation_text=target_label,
                       annotation_position="top right")
 
+    # Build subtitle with key stats
+    subtitle_parts = [f"Prob. of Loss: {prob_loss:.1f}%"]
+    if goal_miss_pct is not None:
+        subtitle_parts.append(f"Goal Miss Rate: {goal_miss_pct:.1f}%")
+    subtitle = " | ".join(subtitle_parts)
+
     fig.update_layout(
-        title="Terminal Value Distribution (Confidence Intervals)",
+        title=f"Terminal Value Distribution (Confidence Intervals)<br><sup>{subtitle}</sup>",
         xaxis_title="Terminal Portfolio Value ($)",
         yaxis_title="Frequency",
         template="plotly_white",
