@@ -1,40 +1,9 @@
-# Node / Next.js
-node_modules/
-.next/
-out/
-dist/
-coverage/
-.env
-.env.*
-*.local
-
-# Workspace data and unrelated projects
-chroma_data/
-output/
-Cleanup/
-FinBro/
-Politcal_Podcasts/
-Sctipt Maker/
-Series65Guide/
-localhost_files/
-my-app/node_modules/
-
-# Python and virtual env
-*.py
-*.ipynb
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
 venv/
-.venv/
-
-# Media and binaries
-*.mp3
-*.wav
-*.m4a
-*.faiss
-*.npy
-*.bin
-*.pickle
-*.sqlite3
-
-# OS / editor
-.DS_Store
-Thumbs.db
+.env
+*.egg-info/
+dist/
+build/
