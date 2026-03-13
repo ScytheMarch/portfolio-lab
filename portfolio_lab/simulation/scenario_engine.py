@@ -350,18 +350,36 @@ def run_full_scenario(
 
 
 def _extract_correlation_observations(
-    corr: pd.DataFrame, tickers: list[str], threshold: float = 0.7
+    corr: pd.DataFrame, tickers: list[str], threshold: float = 0.7,
+    max_pairs: int = 15,
 ) -> list[str]:
-    """Extract noteworthy correlation observations."""
-    obs = []
-    for i in range(len(tickers)):
-        for j in range(i + 1, len(tickers)):
+    """Extract noteworthy correlation observations, limited for readability."""
+    n = len(tickers)
+    # Use a higher threshold for large portfolios to avoid hundreds of lines
+    if n > 20:
+        threshold = max(threshold, 0.85)
+
+    pairs = []
+    for i in range(n):
+        for j in range(i + 1, n):
             val = corr.iloc[i, j]
             if abs(val) > threshold:
-                direction = "positively" if val > 0 else "negatively"
-                obs.append(
-                    f"{tickers[i]} and {tickers[j]} are {direction} correlated ({val:.2f})"
-                )
+                pairs.append((tickers[i], tickers[j], float(val)))
+
+    # Sort by absolute correlation descending, keep top N
+    pairs.sort(key=lambda x: abs(x[2]), reverse=True)
+    total = len(pairs)
+    pairs = pairs[:max_pairs]
+
+    obs = []
+    if total > max_pairs:
+        obs.append(
+            f"Showing top {max_pairs} of {total} highly correlated pairs "
+            f"(|r| > {threshold:.2f})"
+        )
+    for t1, t2, val in pairs:
+        direction = "positively" if val > 0 else "negatively"
+        obs.append(f"{t1} and {t2} are {direction} correlated ({val:.2f})")
     return obs
 
 

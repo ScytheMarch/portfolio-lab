@@ -50,6 +50,7 @@ from portfolio_lab.ui.charts import (
     goal_hit_rate_gauge,
     income_projection_chart,
     rolling_performance_chart,
+    terminal_value_distribution_chart,
 )
 from portfolio_lab.ui.pages import render_full_report
 
@@ -118,10 +119,29 @@ if run_analysis and tickers:
     with st.spinner("Fetching fund metadata..."):
         fund_info = fetch_fund_metadata(tickers)
 
-        # Display metadata warnings
+        # Condense metadata warnings into grouped summaries
+        missing_er = []
+        missing_yield = []
+        other_warnings = []
         for t, info in fund_info.items():
             for w in info.warnings:
-                st.warning(w)
+                if "Expense ratio not available" in w:
+                    missing_er.append(t)
+                elif "Dividend yield not available" in w:
+                    missing_yield.append(t)
+                else:
+                    other_warnings.append(w)
+
+        if missing_er:
+            with st.expander(f"Expense ratio unavailable for {len(missing_er)} ticker(s)"):
+                st.write(", ".join(missing_er))
+                st.caption("Manual input recommended. Do NOT assume zero for funds/ETFs.")
+        if missing_yield:
+            with st.expander(f"Dividend yield unavailable for {len(missing_yield)} ticker(s)"):
+                st.write(", ".join(missing_yield))
+                st.caption("These will be treated as 0% yield in income calculations.")
+        for w in other_warnings:
+            st.warning(w)
 
     with st.spinner("Fetching risk-free rate..."):
         rf_rate, rf_source = fetch_risk_free_rate(data_settings["rf_override"])
@@ -203,6 +223,16 @@ if run_analysis and tickers:
                 mc_res.nominal_paths,
                 mc_settings["horizon_years"],
                 mc_settings["initial_investment"],
+            ),
+            use_container_width=True,
+        )
+
+        # Terminal value distribution (confidence intervals)
+        st.plotly_chart(
+            terminal_value_distribution_chart(
+                mc_res.nominal_terminal,
+                mc_settings["initial_investment"],
+                target_value=goal_settings.get("target_value"),
             ),
             use_container_width=True,
         )

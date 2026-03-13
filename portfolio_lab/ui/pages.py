@@ -170,9 +170,10 @@ def render_risk_drivers(risk: dict[str, Any]):
             st.warning(w)
 
     if risk["correlation_observations"]:
-        st.markdown("**Correlation Notes:**")
-        for obs in risk["correlation_observations"]:
-            st.write(f"- {obs}")
+        n_obs = len(risk["correlation_observations"])
+        with st.expander(f"Correlation Notes ({n_obs} entries)"):
+            for obs in risk["correlation_observations"]:
+                st.write(f"- {obs}")
 
 
 def render_diversification(div: dict[str, Any]):

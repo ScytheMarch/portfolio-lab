@@ -342,6 +342,78 @@ def income_projection_chart(
     return fig
 
 
+def terminal_value_distribution_chart(
+    terminal_values: np.ndarray,
+    initial_investment: float,
+    target_value: Optional[float] = None,
+) -> go.Figure:
+    """
+    Histogram of Monte Carlo terminal values with std deviation bands
+    and key percentile markers.
+    """
+    mean = float(np.mean(terminal_values))
+    std = float(np.std(terminal_values))
+    median = float(np.median(terminal_values))
+    p10 = float(np.percentile(terminal_values, 10))
+    p90 = float(np.percentile(terminal_values, 90))
+
+    fig = go.Figure()
+
+    # Histogram
+    fig.add_trace(go.Histogram(
+        x=terminal_values,
+        nbinsx=80,
+        marker_color="rgba(31,119,180,0.6)",
+        name="Terminal Values",
+        hovertemplate="$%{x:,.0f}<br>Count: %{y}<extra></extra>",
+    ))
+
+    # Mean line
+    fig.add_vline(x=mean, line_dash="solid", line_color="#ff7f0e", line_width=2,
+                  annotation_text=f"Mean: ${mean:,.0f}", annotation_position="top right")
+
+    # Median line
+    fig.add_vline(x=median, line_dash="dash", line_color="#2ca02c", line_width=2,
+                  annotation_text=f"Median: ${median:,.0f}", annotation_position="top left")
+
+    # +/- 1 std bands
+    fig.add_vrect(x0=mean - std, x1=mean + std,
+                  fillcolor="rgba(255,127,14,0.08)", line_width=0,
+                  annotation_text="1 Std Dev", annotation_position="top left")
+
+    # +/- 2 std bands
+    lo_2 = max(mean - 2 * std, min(terminal_values))
+    fig.add_vrect(x0=lo_2, x1=mean + 2 * std,
+                  fillcolor="rgba(255,127,14,0.04)", line_width=0)
+
+    # 10th / 90th percentile markers
+    fig.add_vline(x=p10, line_dash="dot", line_color="#d62728", line_width=1,
+                  annotation_text=f"10th: ${p10:,.0f}", annotation_position="bottom left")
+    fig.add_vline(x=p90, line_dash="dot", line_color="#d62728", line_width=1,
+                  annotation_text=f"90th: ${p90:,.0f}", annotation_position="bottom right")
+
+    # Initial investment reference
+    fig.add_vline(x=initial_investment, line_dash="dashdot", line_color="gray", line_width=1,
+                  annotation_text=f"Initial: ${initial_investment:,.0f}")
+
+    # Target value if set
+    if target_value is not None and target_value > 0:
+        fig.add_vline(x=target_value, line_dash="solid", line_color="#9467bd", line_width=2,
+                      annotation_text=f"Target: ${target_value:,.0f}",
+                      annotation_position="top right")
+
+    fig.update_layout(
+        title="Terminal Value Distribution (Confidence Intervals)",
+        xaxis_title="Terminal Portfolio Value ($)",
+        yaxis_title="Frequency",
+        template="plotly_white",
+        height=500,
+        xaxis=dict(tickformat="$,.0f"),
+        showlegend=False,
+    )
+    return fig
+
+
 def rolling_performance_chart(
     returns: pd.DataFrame,
     window: int = 252,

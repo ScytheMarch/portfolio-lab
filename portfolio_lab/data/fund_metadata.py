@@ -106,6 +106,15 @@ def _parse_fund_info(ticker: str, info: dict) -> FundInfo:
                     )
                 # For individual equities, expense ratio is correctly None/0
 
+    # Sanity cap: expense ratios above 5% are almost certainly parsing errors
+    _MAX_ER = 0.05
+    if fund.expense_ratio is not None and fund.expense_ratio > _MAX_ER:
+        logger.warning(
+            f"{ticker}: expense ratio {fund.expense_ratio*100:.2f}% exceeds "
+            f"{_MAX_ER*100:.0f}% cap — capping. Likely a yfinance data anomaly."
+        )
+        fund.expense_ratio = _MAX_ER
+
     # Dividend yield — yfinance fields have DIFFERENT units:
     #   "yield": decimal (0.0163 = 1.63%) — ETFs/funds only, None for equities
     #   "dividendYield": percentage (1.63 = 1.63%) — needs /100
@@ -125,6 +134,16 @@ def _parse_fund_info(ticker: str, info: dict) -> FundInfo:
         fund.dividend_yield = float(dy_pct) / 100.0
     else:
         warnings.append(f"Dividend yield not available for {ticker}.")
+
+    # Sanity cap: yields above 20% are almost certainly yfinance data anomalies
+    # (SEC 30-day yield, distribution yield, or unit errors)
+    _MAX_YIELD = 0.20
+    if fund.dividend_yield is not None and fund.dividend_yield > _MAX_YIELD:
+        logger.warning(
+            f"{ticker}: dividend yield {fund.dividend_yield*100:.1f}% exceeds "
+            f"{_MAX_YIELD*100:.0f}% cap — capping. Likely a yfinance data anomaly."
+        )
+        fund.dividend_yield = _MAX_YIELD
 
     # Total assets
     ta = info.get("totalAssets")
