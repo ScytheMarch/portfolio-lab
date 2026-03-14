@@ -200,6 +200,122 @@ def portfolio_factor_exposures(
     return exposures
 
 
+def factor_scenario_return(
+    factor_loadings: dict[str, float],
+    scenario_premia: dict[str, float],
+    risk_free_rate: float = 0.05,
+) -> float:
+    """
+    Compute implied portfolio return under a user-defined factor scenario.
+
+    Args:
+        factor_loadings: Portfolio factor betas.
+        scenario_premia: Assumed annual factor returns (e.g., {"Mkt-RF": 0.08, "SMB": 0.05}).
+        risk_free_rate: Risk-free rate.
+
+    Returns:
+        Implied portfolio return under this scenario.
+    """
+    implied = risk_free_rate
+    for factor, loading in factor_loadings.items():
+        if factor in scenario_premia:
+            implied += loading * scenario_premia[factor]
+    return implied
+
+
+def factor_return_attribution(
+    portfolio_returns: pd.Series,
+    factor_data: Optional[pd.DataFrame] = None,
+    frequency: str = "daily",
+    annualization_factor: int = 252,
+) -> dict[str, float]:
+    """
+    Decompose portfolio returns into factor contributions.
+
+    Returns dict mapping each factor (+ alpha + residual) to its annualized
+    contribution to portfolio return.
+    """
+    if factor_data is None:
+        factor_data = fetch_ff5_factors(frequency=frequency)
+    if factor_data is None:
+        return {}
+
+    combined = pd.concat([portfolio_returns, factor_data], axis=1, join="inner").dropna()
+    if len(combined) < 30:
+        return {}
+
+    y = combined.iloc[:, 0] - combined["RF"]
+    X_cols = [c for c in FF5_FACTORS if c in combined.columns]
+    X = combined[X_cols].values
+    X_with_const = np.column_stack([np.ones(len(X)), X])
+    y_arr = y.values
+
+    try:
+        betas = np.linalg.solve(X_with_const.T @ X_with_const, X_with_const.T @ y_arr)
+    except np.linalg.LinAlgError:
+        return {}
+
+    # Attribution: each factor's contribution = beta * mean(factor) * annualization
+    attribution = {}
+    attribution["Alpha"] = float(betas[0]) * annualization_factor
+    for i, factor in enumerate(X_cols):
+        factor_mean = float(combined[factor].mean())
+        attribution[factor] = float(betas[i + 1]) * factor_mean * annualization_factor
+    attribution["Risk-Free"] = float(combined["RF"].mean()) * annualization_factor
+
+    # Residual = total return - sum of attributed
+    total_ann = float(combined.iloc[:, 0].mean()) * annualization_factor
+    attributed_sum = sum(attribution.values())
+    attribution["Residual"] = total_ann - attributed_sum
+
+    return attribution
+
+
+def factor_cumulative_returns(
+    factor_data: Optional[pd.DataFrame] = None,
+    frequency: str = "daily",
+) -> Optional[pd.DataFrame]:
+    """
+    Compute cumulative returns for each FF5 factor.
+
+    Returns DataFrame with cumulative growth of $1 invested in each factor.
+    """
+    if factor_data is None:
+        factor_data = fetch_ff5_factors(frequency=frequency)
+    if factor_data is None:
+        return None
+
+    factor_cols = [c for c in FF5_FACTORS if c in factor_data.columns]
+    cumulative = (1 + factor_data[factor_cols]).cumprod()
+    return cumulative
+
+
+def factor_correlation_matrix(
+    factor_data: Optional[pd.DataFrame] = None,
+    frequency: str = "daily",
+) -> Optional[pd.DataFrame]:
+    """
+    Compute correlation matrix between FF5 factors.
+    """
+    if factor_data is None:
+        factor_data = fetch_ff5_factors(frequency=frequency)
+    if factor_data is None:
+        return None
+
+    factor_cols = [c for c in FF5_FACTORS if c in factor_data.columns]
+    return factor_data[factor_cols].corr()
+
+
+SCENARIO_PRESETS = {
+    "Bull Market": {"Mkt-RF": 0.15, "SMB": 0.02, "HML": 0.01, "RMW": 0.03, "CMA": 0.01},
+    "Bear Market": {"Mkt-RF": -0.20, "SMB": -0.05, "HML": 0.02, "RMW": 0.01, "CMA": 0.03},
+    "Value Rally": {"Mkt-RF": 0.06, "SMB": 0.01, "HML": 0.10, "RMW": 0.03, "CMA": 0.04},
+    "Small Cap Surge": {"Mkt-RF": 0.08, "SMB": 0.12, "HML": 0.02, "RMW": 0.02, "CMA": 0.01},
+    "Quality Flight": {"Mkt-RF": -0.05, "SMB": -0.08, "HML": -0.03, "RMW": 0.08, "CMA": 0.05},
+    "Historical Average": {"Mkt-RF": 0.06, "SMB": 0.02, "HML": 0.03, "RMW": 0.03, "CMA": 0.02},
+}
+
+
 def factor_implied_expected_return(
     factor_loadings: dict[str, float],
     factor_risk_premia: Optional[dict[str, float]] = None,

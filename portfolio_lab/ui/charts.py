@@ -432,6 +432,166 @@ def terminal_value_distribution_chart(
     return fig
 
 
+def factor_attribution_chart(attribution: dict[str, float]) -> go.Figure:
+    """Stacked bar chart decomposing portfolio return into factor contributions."""
+    factors = list(attribution.keys())
+    values = [v * 100 for v in attribution.values()]
+
+    colors = {
+        "Alpha": "#2ca02c",
+        "Mkt-RF": "#1f77b4",
+        "SMB": "#ff7f0e",
+        "HML": "#d62728",
+        "RMW": "#9467bd",
+        "CMA": "#8c564b",
+        "Risk-Free": "#7f7f7f",
+        "Residual": "#bcbd22",
+    }
+
+    fig = go.Figure()
+    fig.add_trace(go.Bar(
+        x=factors,
+        y=values,
+        marker_color=[colors.get(f, "#17becf") for f in factors],
+        text=[f"{v:+.2f}%" for v in values],
+        textposition="auto",
+    ))
+
+    fig.add_hline(y=0, line_dash="solid", line_color="black", line_width=0.5)
+
+    total = sum(values)
+    fig.update_layout(
+        title=f"Factor Return Attribution (Total: {total:.2f}%)",
+        xaxis_title="Factor",
+        yaxis_title="Annualized Contribution (%)",
+        template="plotly_white",
+        height=450,
+        showlegend=False,
+    )
+    return fig
+
+
+def factor_premium_history_chart(cumulative_returns: pd.DataFrame) -> go.Figure:
+    """Line chart of cumulative factor returns over time."""
+    colors = {
+        "Mkt-RF": "#1f77b4",
+        "SMB": "#ff7f0e",
+        "HML": "#d62728",
+        "RMW": "#9467bd",
+        "CMA": "#8c564b",
+    }
+
+    fig = go.Figure()
+    for col in cumulative_returns.columns:
+        fig.add_trace(go.Scatter(
+            x=cumulative_returns.index,
+            y=cumulative_returns[col].values,
+            mode="lines",
+            name=col,
+            line=dict(color=colors.get(col, "#17becf"), width=2),
+        ))
+
+    fig.add_hline(y=1.0, line_dash="dash", line_color="gray", line_width=1,
+                  annotation_text="$1 Starting Value")
+
+    fig.update_layout(
+        title="Cumulative Factor Returns (Growth of $1)",
+        xaxis_title="Date",
+        yaxis_title="Cumulative Return ($)",
+        template="plotly_white",
+        height=500,
+        yaxis=dict(tickformat="$.2f"),
+    )
+    return fig
+
+
+def factor_correlation_heatmap(corr_matrix: pd.DataFrame) -> go.Figure:
+    """Heatmap of correlations between FF5 factors."""
+    fig = go.Figure(data=go.Heatmap(
+        z=corr_matrix.values,
+        x=corr_matrix.columns.tolist(),
+        y=corr_matrix.index.tolist(),
+        colorscale="RdBu_r",
+        zmin=-1, zmax=1,
+        text=np.round(corr_matrix.values, 3),
+        texttemplate="%{text}",
+        textfont={"size": 13},
+    ))
+    fig.update_layout(
+        title="Factor Correlation Matrix (FF5)",
+        template="plotly_white",
+        height=450,
+        width=550,
+    )
+    return fig
+
+
+def factor_regression_summary_chart(
+    portfolio_loadings: dict[str, float],
+    portfolio_t_stats: dict[str, float],
+) -> go.Figure:
+    """Bar chart of portfolio factor loadings with significance markers."""
+    factors = list(portfolio_loadings.keys())
+    betas = list(portfolio_loadings.values())
+    t_stats = [portfolio_t_stats.get(f, 0) for f in factors]
+
+    colors = ["#2ca02c" if abs(t) > 2.0 else "#aaaaaa" for t in t_stats]
+
+    fig = go.Figure()
+    fig.add_trace(go.Bar(
+        x=factors,
+        y=betas,
+        marker_color=colors,
+        text=[f"{b:.3f}\n(t={t:.1f})" for b, t in zip(betas, t_stats)],
+        textposition="auto",
+    ))
+
+    fig.add_hline(y=0, line_dash="solid", line_color="black", line_width=0.5)
+
+    fig.update_layout(
+        title="Portfolio Factor Loadings (green = significant at 95%)",
+        xaxis_title="Factor",
+        yaxis_title="Beta Loading",
+        template="plotly_white",
+        height=400,
+        showlegend=False,
+    )
+    return fig
+
+
+def scenario_comparison_chart(
+    scenario_results: dict[str, float],
+    base_return: float,
+) -> go.Figure:
+    """Bar chart comparing portfolio return across factor scenarios."""
+    names = list(scenario_results.keys())
+    returns = [v * 100 for v in scenario_results.values()]
+
+    colors = ["#2ca02c" if r > base_return * 100 else "#d62728" for r in returns]
+
+    fig = go.Figure()
+    fig.add_trace(go.Bar(
+        x=names,
+        y=returns,
+        marker_color=colors,
+        text=[f"{r:.1f}%" for r in returns],
+        textposition="auto",
+    ))
+
+    fig.add_hline(y=base_return * 100, line_dash="dash", line_color="orange", line_width=2,
+                  annotation_text=f"Base Case: {base_return*100:.1f}%")
+
+    fig.update_layout(
+        title="Scenario Analysis: Implied Portfolio Returns",
+        xaxis_title="Scenario",
+        yaxis_title="Implied Annual Return (%)",
+        template="plotly_white",
+        height=450,
+        showlegend=False,
+    )
+    return fig
+
+
 def rolling_performance_chart(
     returns: pd.DataFrame,
     window: int = 252,

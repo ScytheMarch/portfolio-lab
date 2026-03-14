@@ -70,6 +70,10 @@ def optimize_portfolio(
     # Income data (for income objectives)
     yields: Optional[np.ndarray] = None,
     expense_ratios: Optional[np.ndarray] = None,
+    # Factor tilt constraints
+    factor_tilt_targets: Optional[dict[str, float]] = None,
+    factor_loadings_matrix: Optional[np.ndarray] = None,
+    factor_names: Optional[list[str]] = None,
     # Solver options
     n_restarts: int = 10,
 ) -> OptimizationResult:
@@ -123,6 +127,9 @@ def optimize_portfolio(
         min_yield=min_yield,
         max_er=max_er,
         min_div_ratio=min_div_ratio,
+        factor_tilt_targets=factor_tilt_targets,
+        factor_loadings_matrix=factor_loadings_matrix,
+        factor_names=factor_names,
     )
 
     # Select objective function

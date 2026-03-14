@@ -109,6 +109,25 @@ def min_diversification_constraint(
     return {"type": "ineq", "fun": div_constraint}
 
 
+def min_factor_exposure_constraint(
+    factor_loadings_matrix: np.ndarray,
+    factor_idx: int,
+    min_exposure: float,
+) -> dict:
+    """Portfolio-level factor loading must be at least min_exposure.
+
+    Args:
+        factor_loadings_matrix: (n_assets x n_factors) matrix of per-asset betas.
+        factor_idx: Column index of the target factor.
+        min_exposure: Minimum weighted factor loading.
+    """
+    betas = factor_loadings_matrix[:, factor_idx]
+    return {
+        "type": "ineq",
+        "fun": lambda w: w @ betas - min_exposure,
+    }
+
+
 def build_constraints(
     n_assets: int,
     cov_matrix: np.ndarray,
@@ -121,6 +140,9 @@ def build_constraints(
     min_yield: Optional[float] = None,
     max_er: Optional[float] = None,
     min_div_ratio: Optional[float] = None,
+    factor_tilt_targets: Optional[dict[str, float]] = None,
+    factor_loadings_matrix: Optional[np.ndarray] = None,
+    factor_names: Optional[list[str]] = None,
 ) -> list[dict]:
     """
     Build a complete constraint list from parameters.
@@ -145,5 +167,13 @@ def build_constraints(
 
     if min_div_ratio is not None:
         constraints.append(min_diversification_constraint(cov_matrix, min_div_ratio))
+
+    if factor_tilt_targets and factor_loadings_matrix is not None and factor_names:
+        for factor_name, min_exp in factor_tilt_targets.items():
+            if factor_name in factor_names:
+                idx = factor_names.index(factor_name)
+                constraints.append(
+                    min_factor_exposure_constraint(factor_loadings_matrix, idx, min_exp)
+                )
 
     return constraints

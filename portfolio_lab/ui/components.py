@@ -196,6 +196,69 @@ def render_fee_settings() -> dict:
     return {"advisory_fee": advisory_fee}
 
 
+def render_factor_tilt_settings() -> dict:
+    """Render factor tilt constraint controls."""
+    with st.expander("Factor Tilt Settings"):
+        st.caption(
+            "Set minimum factor exposures to tilt the portfolio. "
+            "Leave at 0 for no constraint."
+        )
+        factor_labels = {
+            "Mkt-RF": "Market Beta (Mkt-RF)",
+            "SMB": "Small Cap Tilt (SMB)",
+            "HML": "Value Tilt (HML)",
+            "RMW": "Profitability Tilt (RMW)",
+            "CMA": "Conservative Investment Tilt (CMA)",
+        }
+        tilts = {}
+        for factor, label in factor_labels.items():
+            val = st.number_input(
+                f"Min {label}",
+                min_value=-1.0,
+                max_value=2.0,
+                value=0.0,
+                step=0.05,
+                key=f"tilt_{factor}",
+            )
+            if val != 0.0:
+                tilts[factor] = val
+    return tilts
+
+
+def render_factor_scenario_settings() -> dict:
+    """Render factor scenario analysis controls."""
+    from portfolio_lab.analytics.factor_model import SCENARIO_PRESETS
+
+    with st.expander("Factor Scenario Analysis"):
+        st.caption("Test how your portfolio would perform under different factor environments.")
+
+        preset = st.selectbox(
+            "Scenario Preset",
+            ["Custom"] + list(SCENARIO_PRESETS.keys()),
+        )
+
+        if preset != "Custom":
+            defaults = SCENARIO_PRESETS[preset]
+        else:
+            defaults = {"Mkt-RF": 0.06, "SMB": 0.02, "HML": 0.03, "RMW": 0.03, "CMA": 0.02}
+
+        scenario = {}
+        col1, col2 = st.columns(2)
+        factors = list(defaults.keys())
+        for i, factor in enumerate(factors):
+            with col1 if i % 2 == 0 else col2:
+                scenario[factor] = st.number_input(
+                    f"{factor} Return (%)",
+                    min_value=-50.0,
+                    max_value=50.0,
+                    value=defaults[factor] * 100,
+                    step=0.5,
+                    key=f"scenario_{factor}",
+                ) / 100
+
+    return {"preset": preset, "scenario_premia": scenario}
+
+
 def render_data_settings() -> dict:
     """Render data lookback and risk-free rate settings."""
     with st.expander("Data & Risk-Free Rate Settings"):

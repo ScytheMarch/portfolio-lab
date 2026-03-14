@@ -37,6 +37,8 @@ from portfolio_lab.ui.components import (
     render_goal_settings,
     render_fee_settings,
     render_data_settings,
+    render_factor_tilt_settings,
+    render_factor_scenario_settings,
 )
 from portfolio_lab.ui.charts import (
     efficient_frontier_chart,
@@ -51,6 +53,11 @@ from portfolio_lab.ui.charts import (
     income_projection_chart,
     rolling_performance_chart,
     terminal_value_distribution_chart,
+    factor_attribution_chart,
+    factor_premium_history_chart,
+    factor_correlation_heatmap,
+    factor_regression_summary_chart,
+    scenario_comparison_chart,
 )
 from portfolio_lab.ui.pages import render_full_report
 
@@ -92,6 +99,12 @@ with st.sidebar:
 
     # Goals
     goal_settings = render_goal_settings()
+
+    # Factor tilts
+    factor_tilt_targets = render_factor_tilt_settings()
+
+    # Factor scenarios
+    factor_scenario_settings = render_factor_scenario_settings()
 
     # Fees
     fee_settings = render_fee_settings()
@@ -147,13 +160,14 @@ if run_analysis and tickers:
         rf_rate, rf_source = fetch_risk_free_rate(data_settings["rf_override"])
         st.info(f"Risk-free rate: {rf_rate*100:.2f}% (source: {rf_source})")
 
-    # Fetch factor data if needed
+    # Always fetch factor data (needed for regression analysis, tilting, scenarios)
     factor_data = None
-    if opt_settings["return_method"] == "ff5_implied":
-        with st.spinner("Fetching Fama-French factor data..."):
-            factor_data = fetch_ff5_factors(frequency="daily")
-            if factor_data is None:
-                st.warning("Factor data unavailable. Falling back to arithmetic mean returns.")
+    with st.spinner("Fetching Fama-French factor data..."):
+        factor_data = fetch_ff5_factors(frequency="daily")
+        if factor_data is None:
+            st.warning("Factor data unavailable. Factor analysis features will be limited.")
+            if opt_settings["return_method"] == "ff5_implied":
+                st.warning("Falling back to arithmetic mean returns.")
                 opt_settings["return_method"] = "historical_arithmetic"
 
     # =====================================================
@@ -185,6 +199,8 @@ if run_analysis and tickers:
             advisory_fee=fee_settings["advisory_fee"],
             factor_data=factor_data,
             mc_seed=42,
+            factor_tilt_targets=factor_tilt_targets if factor_tilt_targets else None,
+            scenario_premia=factor_scenario_settings.get("scenario_premia"),
         )
 
     if result.get("error"):
@@ -273,6 +289,52 @@ if run_analysis and tickers:
         if analytics.get("factor_loadings"):
             st.plotly_chart(
                 factor_exposure_chart(analytics["factor_loadings"]),
+                use_container_width=True,
+            )
+
+        # Factor regression with significance
+        port_reg = analytics.get("portfolio_factor_regression")
+        if port_reg and port_reg.factor_loadings:
+            st.plotly_chart(
+                factor_regression_summary_chart(
+                    port_reg.factor_loadings,
+                    port_reg.factor_t_stats,
+                ),
+                use_container_width=True,
+            )
+
+        # Factor return attribution
+        attrib = analytics.get("factor_attribution")
+        if attrib:
+            st.plotly_chart(
+                factor_attribution_chart(attrib),
+                use_container_width=True,
+            )
+
+        # Scenario comparison
+        scenario_res = analytics.get("scenario_results")
+        if scenario_res and analytics.get("factor_loadings"):
+            st.plotly_chart(
+                scenario_comparison_chart(
+                    scenario_res,
+                    base_return=opt_res.expected_return,
+                ),
+                use_container_width=True,
+            )
+
+        # Factor premium history
+        factor_cum = analytics.get("factor_cumulative_returns")
+        if factor_cum is not None:
+            st.plotly_chart(
+                factor_premium_history_chart(factor_cum),
+                use_container_width=True,
+            )
+
+        # Factor correlation matrix
+        factor_corr = analytics.get("factor_correlation")
+        if factor_corr is not None:
+            st.plotly_chart(
+                factor_correlation_heatmap(factor_corr),
                 use_container_width=True,
             )
 
