@@ -12,6 +12,14 @@ import plotly.graph_objects as go
 import plotly.express as px
 from plotly.subplots import make_subplots
 
+# ── Dark theme layout defaults ───────────────────────────────────────────
+_DARK_LAYOUT = dict(
+    template="plotly_dark",
+    paper_bgcolor="rgba(0,0,0,0)",
+    plot_bgcolor="rgba(0,0,0,0)",
+    font=dict(family="Inter, sans-serif", color="#94a3b8"),
+)
+
 
 def efficient_frontier_chart(
     ef_vols: np.ndarray,
@@ -79,7 +87,7 @@ def efficient_frontier_chart(
         title="Efficient Frontier",
         xaxis_title="Volatility (%)",
         yaxis_title="Expected Return (%)",
-        template="plotly_white",
+        **_DARK_LAYOUT,
         height=500,
     )
     return fig
@@ -99,7 +107,7 @@ def correlation_heatmap(corr_matrix: pd.DataFrame) -> go.Figure:
     ))
     fig.update_layout(
         title="Correlation Matrix",
-        template="plotly_white",
+        **_DARK_LAYOUT,
         height=500,
     )
     return fig
@@ -117,7 +125,7 @@ def allocation_pie_chart(weights: dict[str, float]) -> go.Figure:
     )])
     fig.update_layout(
         title="Portfolio Allocation",
-        template="plotly_white",
+        **_DARK_LAYOUT,
         height=400,
     )
     return fig
@@ -179,7 +187,7 @@ def monte_carlo_fan_chart(
         title="Monte Carlo Simulation - Nominal Outcomes",
         xaxis_title="Years",
         yaxis_title="Portfolio Value ($)",
-        template="plotly_white",
+        **_DARK_LAYOUT,
         height=500,
         yaxis=dict(tickformat="$,.0f"),
     )
@@ -213,7 +221,7 @@ def nominal_vs_real_chart(
         title="Nominal vs Real Outcomes (Median)",
         xaxis_title="Years",
         yaxis_title="Portfolio Value ($)",
-        template="plotly_white",
+        **_DARK_LAYOUT,
         height=400,
         yaxis=dict(tickformat="$,.0f"),
     )
@@ -237,7 +245,7 @@ def drawdown_chart(prices: pd.Series, title: str = "Portfolio Drawdown") -> go.F
         title=title,
         xaxis_title="Date",
         yaxis_title="Drawdown (%)",
-        template="plotly_white",
+        **_DARK_LAYOUT,
         height=350,
     )
     return fig
@@ -259,7 +267,7 @@ def risk_contribution_chart(risk_pct: dict[str, float]) -> go.Figure:
         title="Risk Contribution by Asset (%)",
         xaxis_title="Asset",
         yaxis_title="% of Portfolio Risk",
-        template="plotly_white",
+        **_DARK_LAYOUT,
         height=400,
     )
     return fig
@@ -282,7 +290,7 @@ def factor_exposure_chart(factor_exposures: dict[str, float]) -> go.Figure:
         title="Fama-French 5-Factor Exposures",
         xaxis_title="Factor",
         yaxis_title="Beta Loading",
-        template="plotly_white",
+        **_DARK_LAYOUT,
         height=400,
     )
     fig.add_hline(y=0, line_dash="solid", line_color="black", line_width=0.5)
@@ -312,7 +320,7 @@ def goal_hit_rate_gauge(hit_rate: float, label: str = "Goal Hit Rate") -> go.Fig
             },
         },
     ))
-    fig.update_layout(height=300, template="plotly_white")
+    fig.update_layout(height=300, **_DARK_LAYOUT)
     return fig
 
 
@@ -335,7 +343,7 @@ def income_projection_chart(
         title="Projected Annual Income",
         xaxis_title="Year",
         yaxis_title="Income ($)",
-        template="plotly_white",
+        **_DARK_LAYOUT,
         height=400,
         yaxis=dict(tickformat="$,.0f"),
     )
@@ -424,7 +432,7 @@ def terminal_value_distribution_chart(
         title=f"Terminal Value Distribution (Confidence Intervals)<br><sup>{subtitle}</sup>",
         xaxis_title="Terminal Portfolio Value ($)",
         yaxis_title="Frequency",
-        template="plotly_white",
+        **_DARK_LAYOUT,
         height=500,
         xaxis=dict(tickformat="$,.0f"),
         showlegend=False,
@@ -464,7 +472,7 @@ def factor_attribution_chart(attribution: dict[str, float]) -> go.Figure:
         title=f"Factor Return Attribution (Total: {total:.2f}%)",
         xaxis_title="Factor",
         yaxis_title="Annualized Contribution (%)",
-        template="plotly_white",
+        **_DARK_LAYOUT,
         height=450,
         showlegend=False,
     )
@@ -498,7 +506,7 @@ def factor_premium_history_chart(cumulative_returns: pd.DataFrame) -> go.Figure:
         title="Cumulative Factor Returns (Growth of $1)",
         xaxis_title="Date",
         yaxis_title="Cumulative Return ($)",
-        template="plotly_white",
+        **_DARK_LAYOUT,
         height=500,
         yaxis=dict(tickformat="$.2f"),
     )
@@ -519,7 +527,7 @@ def factor_correlation_heatmap(corr_matrix: pd.DataFrame) -> go.Figure:
     ))
     fig.update_layout(
         title="Factor Correlation Matrix (FF5)",
-        template="plotly_white",
+        **_DARK_LAYOUT,
         height=450,
         width=550,
     )
@@ -552,7 +560,7 @@ def factor_regression_summary_chart(
         title="Portfolio Factor Loadings (green = significant at 95%)",
         xaxis_title="Factor",
         yaxis_title="Beta Loading",
-        template="plotly_white",
+        **_DARK_LAYOUT,
         height=400,
         showlegend=False,
     )
@@ -585,7 +593,7 @@ def scenario_comparison_chart(
         title="Scenario Analysis: Implied Portfolio Returns",
         xaxis_title="Scenario",
         yaxis_title="Implied Annual Return (%)",
-        template="plotly_white",
+        **_DARK_LAYOUT,
         height=450,
         showlegend=False,
     )
@@ -608,7 +616,7 @@ def rolling_performance_chart(
         title=f"Rolling {window}-Day Annualized Return",
         xaxis_title="Date",
         yaxis_title="Annualized Return (%)",
-        template="plotly_white",
+        **_DARK_LAYOUT,
         height=400,
     )
     return fig
