@@ -106,20 +106,101 @@ def correlation_heatmap(corr_matrix: pd.DataFrame) -> go.Figure:
 
 
 def allocation_pie_chart(weights: dict[str, float]) -> go.Figure:
-    """Pie chart of portfolio weights."""
-    # Filter out zero weights
+    """Donut chart + horizontal bar chart of portfolio weights."""
+    from plotly.subplots import make_subplots
+
+    # Filter out negligible weights and sort descending
     filtered = {k: v for k, v in weights.items() if v > 0.001}
-    fig = go.Figure(data=[go.Pie(
-        labels=list(filtered.keys()),
-        values=list(filtered.values()),
-        textinfo="label+percent",
-        hovertemplate="%{label}: %{value:.2%}<extra></extra>",
-    )])
-    fig.update_layout(
-        title="Portfolio Allocation",
-        template="plotly_white",
-        height=400,
+    sorted_items = sorted(filtered.items(), key=lambda x: x[1], reverse=True)
+
+    # Group small holdings (<2%) into "Other" if there are many
+    if len(sorted_items) > 12:
+        top = [(k, v) for k, v in sorted_items if v >= 0.02]
+        other_val = sum(v for _, v in sorted_items if v < 0.02)
+        if other_val > 0:
+            top.append(("Other", other_val))
+        sorted_items = top
+
+    labels = [k for k, _ in sorted_items]
+    values = [v for _, v in sorted_items]
+
+    # Color palette
+    colors = [
+        "#818cf8", "#a78bfa", "#c084fc", "#e879f9", "#f472b6",
+        "#fb7185", "#f97316", "#facc15", "#4ade80", "#34d399",
+        "#2dd4bf", "#22d3ee", "#38bdf8", "#60a5fa", "#6366f1",
+        "#8b5cf6", "#a855f7", "#d946ef", "#ec4899", "#f43f5e",
+    ]
+
+    fig = make_subplots(
+        rows=1, cols=2,
+        specs=[[{"type": "pie"}, {"type": "bar"}]],
+        column_widths=[0.45, 0.55],
+        horizontal_spacing=0.06,
     )
+
+    # Donut chart (left)
+    fig.add_trace(go.Pie(
+        labels=labels,
+        values=values,
+        hole=0.5,
+        textinfo="label+percent",
+        textposition="outside",
+        textfont=dict(size=12),
+        outsidetextfont=dict(size=11),
+        marker=dict(
+            colors=colors[:len(labels)],
+            line=dict(color="rgba(0,0,0,0.3)", width=1),
+        ),
+        hovertemplate="<b>%{label}</b><br>%{percent}<br>Weight: %{value:.2%}<extra></extra>",
+        showlegend=False,
+        sort=False,
+    ), row=1, col=1)
+
+    # Horizontal bar chart (right) — much easier to read
+    bar_labels = list(reversed(labels))
+    bar_values = list(reversed(values))
+    bar_colors = list(reversed(colors[:len(labels)]))
+
+    fig.add_trace(go.Bar(
+        y=bar_labels,
+        x=bar_values,
+        orientation="h",
+        marker=dict(
+            color=bar_colors,
+            line=dict(color="rgba(255,255,255,0.1)", width=0.5),
+        ),
+        text=[f"{v:.1%}" for v in bar_values],
+        textposition="outside",
+        textfont=dict(size=11, color="#94a3b8"),
+        hovertemplate="<b>%{y}</b>: %{x:.2%}<extra></extra>",
+        showlegend=False,
+    ), row=1, col=2)
+
+    fig.update_layout(
+        title=dict(
+            text="Portfolio Allocation",
+            font=dict(size=18),
+        ),
+        template="plotly_dark",
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        height=max(500, len(labels) * 28 + 100),
+        margin=dict(l=10, r=40, t=50, b=20),
+    )
+
+    fig.update_xaxes(
+        showgrid=True,
+        gridcolor="rgba(255,255,255,0.06)",
+        tickformat=".0%",
+        tickfont=dict(size=10, color="#64748b"),
+        row=1, col=2,
+    )
+    fig.update_yaxes(
+        tickfont=dict(size=11, color="#e2e8f0"),
+        row=1, col=2,
+    )
+
     return fig
 
 
