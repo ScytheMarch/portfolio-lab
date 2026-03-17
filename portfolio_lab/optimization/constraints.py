@@ -64,9 +64,16 @@ def target_return_constraint(
     expected_returns: np.ndarray,
     target_return: float,
 ) -> dict:
-    """Portfolio expected return must equal target_return."""
+    """Portfolio expected return must be at least target_return.
+
+    Uses an inequality constraint (>=) instead of equality (==) because
+    equality constraints are often infeasible when weight bounds and
+    diversification constraints limit achievable returns.  The optimizer
+    still minimizes volatility, so it naturally lands as close to the
+    target as possible without overshooting unnecessarily.
+    """
     return {
-        "type": "eq",
+        "type": "ineq",
         "fun": lambda w: w @ expected_returns - target_return,
     }
 

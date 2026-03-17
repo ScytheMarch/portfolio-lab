@@ -45,6 +45,8 @@ def render() -> None:
         return
 
     if trigger:
+        # Clear stale results before running new analysis
+        st.session_state.pop("analysis_result", None)
         _run_analysis_pipeline(tickers)
 
     if "analysis_result" not in st.session_state:
@@ -55,6 +57,11 @@ def render() -> None:
     mc_res = result["mc_result"]
     report = result["report"]
     analytics = result["analytics"]
+
+    # Show optimizer warnings (e.g., fallback messages)
+    if opt_res.warnings:
+        for w in opt_res.warnings:
+            st.warning(w)
 
     # ── Row 1: Portfolio Summary Metrics ───────────────────────────────
     _render_summary_metrics(report["portfolio_summary"])
