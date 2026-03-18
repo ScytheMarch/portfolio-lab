@@ -91,7 +91,9 @@ def render_optimization_settings() -> dict:
         target_return = None
         if objective == "target_return":
             target_return = st.number_input(
-                "Target Annual Return (%)", 0.0, 50.0, 8.0, 0.5
+                "Target Annual Return (%)",
+                0.0, 50.0, 8.0, 0.5,
+                help="The optimizer will find the least-risky portfolio that achieves this return.",
             ) / 100
 
         max_vol = st.number_input(
@@ -164,8 +166,9 @@ def render_monte_carlo_settings() -> dict:
 
 
 def render_goal_settings() -> dict:
-    """Render goal / target settings."""
-    st.subheader("Goal Settings")
+    """Render goal / target settings for Monte Carlo evaluation."""
+    st.subheader("Goals & Fees")
+    st.caption("Set target outcomes and advisory fees.")
 
     col1, col2 = st.columns(2)
 
@@ -177,7 +180,13 @@ def render_goal_settings() -> dict:
 
     with col2:
         target_return_goal = st.number_input(
-            "Target Annualized Return (%, 0=none)", 0.0, 50.0, 0.0, 0.5
+            "Goal Return (%, 0 = none)",
+            0.0, 50.0, 0.0, 0.5,
+            help=(
+                "Monte Carlo goal: what annualized return do you want to evaluate? "
+                "The simulation will report the probability of meeting this return. "
+                "This is NOT the optimizer target — set that under Optimization."
+            ),
         )
         target_return_goal = target_return_goal / 100 if target_return_goal > 0 else None
 
