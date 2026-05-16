@@ -24,31 +24,6 @@ from portfolio_lab.optimization.constraints import (
 
 logger = logging.getLogger(__name__)
 
-
-def _max_achievable_return(
-    expected_returns: np.ndarray,
-    min_weight: float,
-    max_weight: float,
-    n: int,
-) -> float:
-    """Compute the theoretical maximum portfolio return under weight constraints.
-
-    Greedily allocates max_weight to the highest-return assets and min_weight
-    to the rest, subject to weights summing to 1.
-    """
-    sorted_idx = np.argsort(expected_returns)[::-1]  # highest first
-    weights = np.full(n, min_weight)
-    remaining = 1.0 - min_weight * n
-
-    for idx in sorted_idx:
-        add = min(max_weight - min_weight, remaining)
-        if add <= 0:
-            break
-        weights[idx] += add
-        remaining -= add
-
-    return float(weights @ expected_returns)
-
 SUPPORTED_OBJECTIVES = [
     "max_sharpe",
     "min_volatility",
@@ -95,10 +70,6 @@ def optimize_portfolio(
     # Income data (for income objectives)
     yields: Optional[np.ndarray] = None,
     expense_ratios: Optional[np.ndarray] = None,
-    # Factor tilt constraints
-    factor_tilt_targets: Optional[dict[str, float]] = None,
-    factor_loadings_matrix: Optional[np.ndarray] = None,
-    factor_names: Optional[list[str]] = None,
     # Solver options
     n_restarts: int = 10,
 ) -> OptimizationResult:
@@ -139,30 +110,6 @@ def optimize_portfolio(
     _yields = np.asarray(yields, dtype=float) if yields is not None else np.zeros(n)
     _ers = np.asarray(expense_ratios, dtype=float) if expense_ratios is not None else np.zeros(n)
 
-    # ── Feasibility pre-check for target_return ──────────────────────
-    warnings_list: list[str] = []
-    original_objective = objective
-
-    if objective == "target_return" and target_return is not None:
-        # Compute the maximum achievable return under weight constraints
-        max_achievable = _max_achievable_return(mu, min_weight, max_weight, n)
-
-        if target_return > max_achievable:
-            # Target is impossible — fall back to max_sharpe
-            warnings_list.append(
-                f"Target return {target_return*100:.1f}% exceeds the maximum achievable "
-                f"return of {max_achievable*100:.1f}% under current weight constraints "
-                f"(max weight {max_weight*100:.0f}%). Falling back to Maximum Sharpe Ratio."
-            )
-            logger.warning(warnings_list[-1])
-            objective = "max_sharpe"
-            target_return = None
-        elif target_return > max_achievable * 0.95:
-            warnings_list.append(
-                f"Target return {target_return*100:.1f}% is very close to the maximum "
-                f"achievable {max_achievable*100:.1f}%. Results may be highly concentrated."
-            )
-
     constraint_target = target_return if objective == "target_return" else None
     constraints = build_constraints(
         n_assets=n,
@@ -176,9 +123,6 @@ def optimize_portfolio(
         min_yield=min_yield,
         max_er=max_er,
         min_div_ratio=min_div_ratio,
-        factor_tilt_targets=factor_tilt_targets,
-        factor_loadings_matrix=factor_loadings_matrix,
-        factor_names=factor_names,
     )
 
     # Select objective function
@@ -241,34 +185,6 @@ def optimize_portfolio(
             continue
 
     if best_result is None or not best_result.success:
-        # Attempt final fallback: try max_sharpe with relaxed constraints
-        if objective != "max_sharpe":
-            logger.warning(
-                f"Objective '{objective}' failed; attempting max_sharpe fallback."
-            )
-            fallback = optimize_portfolio(
-                tickers=tickers,
-                expected_returns=expected_returns,
-                cov_matrix=cov_matrix,
-                risk_free_rate=risk_free_rate,
-                objective="max_sharpe",
-                min_weight=min_weight,
-                max_weight=max_weight,
-                per_asset_bounds=per_asset_bounds,
-                yields=yields,
-                expense_ratios=expense_ratios,
-                n_restarts=n_restarts,
-            )
-            if fallback.success:
-                fallback.warnings.insert(
-                    0,
-                    f"Original objective '{original_objective}' was infeasible. "
-                    f"Fell back to Maximum Sharpe Ratio."
-                )
-                fallback.warnings.extend(warnings_list)
-                fallback.objective = f"max_sharpe (fallback from {original_objective})"
-                return fallback
-
         return OptimizationResult(
             success=False,
             objective=objective,
@@ -276,7 +192,6 @@ def optimize_portfolio(
                 f"Optimizer failed after {n_restarts} restarts. "
                 f"Last message: {best_result.message if best_result else 'No feasible solution found.'}"
             ),
-            warnings=warnings_list,
         )
 
     # Extract results
@@ -301,7 +216,7 @@ def optimize_portfolio(
 
     weights_dict = {tickers[i]: float(w_opt[i]) for i in range(n)}
 
-    warnings = list(warnings_list)
+    warnings = []
     # Check for near-boundary weights
     for i, t in enumerate(tickers):
         if w_opt[i] >= max_weight - 1e-4:

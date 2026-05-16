@@ -366,59 +366,6 @@ def build_goal_attainment_summary(
     }
 
 
-def build_factor_analysis_section(
-    asset_loadings: dict,
-    portfolio_regression: Optional[dict] = None,
-    factor_attribution: Optional[dict[str, float]] = None,
-    scenario_results: Optional[dict[str, float]] = None,
-) -> dict[str, Any]:
-    """
-    Section 10: Factor Regression Analysis.
-
-    Args:
-        asset_loadings: Dict of ticker -> FactorRegressionResult.
-        portfolio_regression: FactorRegressionResult for the portfolio (as dict).
-        factor_attribution: Factor return attribution breakdown.
-        scenario_results: Dict of scenario_name -> implied return.
-    """
-    # Build per-asset regression table
-    asset_table = []
-    for ticker, reg in asset_loadings.items():
-        row = {
-            "ticker": ticker,
-            "alpha": reg.alpha,
-            "alpha_t_stat": reg.alpha_t_stat,
-            "r_squared": reg.r_squared,
-            "n_obs": reg.n_obs,
-        }
-        for factor in ["Mkt-RF", "SMB", "HML", "RMW", "CMA"]:
-            row[f"{factor}_beta"] = reg.factor_loadings.get(factor, 0.0)
-            row[f"{factor}_t_stat"] = reg.factor_t_stats.get(factor, 0.0)
-        asset_table.append(row)
-
-    # Portfolio-level summary
-    port_summary = None
-    if portfolio_regression is not None:
-        port_summary = {
-            "alpha": portfolio_regression.alpha,
-            "alpha_t_stat": portfolio_regression.alpha_t_stat,
-            "alpha_significant": abs(portfolio_regression.alpha_t_stat) > 2.0,
-            "r_squared": portfolio_regression.r_squared,
-            "adj_r_squared": portfolio_regression.adj_r_squared,
-            "n_obs": portfolio_regression.n_obs,
-            "factor_loadings": portfolio_regression.factor_loadings,
-            "factor_t_stats": portfolio_regression.factor_t_stats,
-        }
-
-    return {
-        "section": "Factor Regression Analysis",
-        "asset_regressions": asset_table,
-        "portfolio_regression": port_summary,
-        "factor_attribution": factor_attribution,
-        "scenario_results": scenario_results,
-    }
-
-
 def generate_post_simulation_report(
     # Portfolio inputs
     tickers: list[str],

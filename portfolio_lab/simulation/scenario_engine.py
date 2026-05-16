@@ -33,18 +33,8 @@ from portfolio_lab.analytics.factor_model import (
     estimate_factor_loadings,
     portfolio_factor_exposures,
     factor_implied_expected_return,
-    factor_return_attribution,
-    factor_scenario_return,
-    factor_cumulative_returns,
-    factor_correlation_matrix as compute_factor_corr,
-    run_portfolio_factor_regression,
-    SCENARIO_PRESETS,
-    FF5_FACTORS,
 )
-from portfolio_lab.analytics.reporting import (
-    generate_post_simulation_report,
-    build_factor_analysis_section,
-)
+from portfolio_lab.analytics.reporting import generate_post_simulation_report
 from portfolio_lab.data.fund_metadata import FundInfo
 from portfolio_lab.optimization.solver import optimize_portfolio, OptimizationResult
 from portfolio_lab.simulation.monte_carlo import MonteCarloEngine, MonteCarloResult
@@ -181,10 +171,6 @@ def run_full_scenario(
     user_returns: Optional[dict[str, float]] = None,
     factor_data: Optional[pd.DataFrame] = None,
     mc_seed: Optional[int] = None,
-    # Factor tilt constraints
-    factor_tilt_targets: Optional[dict[str, float]] = None,
-    # Factor scenario analysis
-    scenario_premia: Optional[dict[str, float]] = None,
 ) -> dict[str, Any]:
     """
     Run the complete scenario: estimate returns -> optimize -> simulate -> report.
@@ -219,20 +205,6 @@ def run_full_scenario(
         for t in tickers
     ])
 
-    # 4b. Factor loadings matrix (needed for tilt constraints and analysis)
-    asset_loadings = None
-    factor_loadings_matrix = None
-    try:
-        asset_loadings = estimate_factor_loadings(returns, factor_data)
-        # Build n_assets x n_factors matrix
-        factor_loadings_matrix = np.zeros((n, len(FF5_FACTORS)))
-        for i, t in enumerate(tickers):
-            if t in asset_loadings:
-                for j, f in enumerate(FF5_FACTORS):
-                    factor_loadings_matrix[i, j] = asset_loadings[t].factor_loadings.get(f, 0.0)
-    except Exception as e:
-        logger.warning(f"Factor loadings estimation failed: {e}")
-
     # 5. Optimize
     opt_result = optimize_portfolio(
         tickers=tickers,
@@ -247,9 +219,6 @@ def run_full_scenario(
         min_yield=min_yield,
         yields=yields_arr,
         expense_ratios=er_arr,
-        factor_tilt_targets=factor_tilt_targets,
-        factor_loadings_matrix=factor_loadings_matrix,
-        factor_names=list(FF5_FACTORS),
     )
 
     if not opt_result.success:
@@ -294,13 +263,13 @@ def run_full_scenario(
     corr_obs = _extract_correlation_observations(corr, tickers)
     corr_flat = _flatten_correlation_matrix(corr)
 
-    # Factor exposures (best effort) — reuse pre-computed asset_loadings
+    # Factor exposures (best effort)
     factor_exps = None
-    if asset_loadings is not None:
-        try:
-            factor_exps = portfolio_factor_exposures(asset_loadings, weights_dict)
-        except Exception as e:
-            logger.warning(f"Factor exposure computation failed: {e}")
+    try:
+        loadings = estimate_factor_loadings(returns, factor_data)
+        factor_exps = portfolio_factor_exposures(loadings, weights_dict)
+    except Exception as e:
+        logger.warning(f"Factor analysis skipped: {e}")
 
     # Sharpe and Sortino on historical returns for context
     port_hist_returns = (returns * weights).sum(axis=1)
@@ -365,52 +334,6 @@ def run_full_scenario(
         goals=goals,
     )
 
-    # 10. Factor regression analysis (extended)
-    port_factor_reg = None
-    attrib = None
-    all_scenario_results = None
-    factor_cum_rets = None
-    factor_corr = None
-
-    try:
-        # Portfolio-level factor regression
-        port_hist_rets = (returns * weights).sum(axis=1)
-        port_hist_rets.name = "Portfolio"
-        port_factor_reg = run_portfolio_factor_regression(
-            returns, weights, factor_data, frequency="daily"
-        )
-
-        # Factor return attribution
-        attrib = factor_return_attribution(port_hist_rets, factor_data)
-
-        # Scenario analysis — run all presets plus custom if provided
-        if factor_exps:
-            all_scenario_results = {}
-            for name, premia in SCENARIO_PRESETS.items():
-                all_scenario_results[name] = factor_scenario_return(
-                    factor_exps, premia, risk_free_rate
-                )
-            if scenario_premia:
-                all_scenario_results["Custom"] = factor_scenario_return(
-                    factor_exps, scenario_premia, risk_free_rate
-                )
-
-        # Factor premium history and correlation
-        factor_cum_rets = factor_cumulative_returns(factor_data)
-        factor_corr = compute_factor_corr(factor_data)
-
-    except Exception as e:
-        logger.warning(f"Extended factor analysis failed: {e}")
-
-    # Build factor analysis section for the report
-    if asset_loadings is not None:
-        report["factor_analysis"] = build_factor_analysis_section(
-            asset_loadings=asset_loadings,
-            portfolio_regression=port_factor_reg,
-            factor_attribution=attrib,
-            scenario_results=all_scenario_results,
-        )
-
     return {
         "optimization_result": opt_result,
         "mc_result": mc_result,
@@ -422,12 +345,6 @@ def run_full_scenario(
             "expected_returns": exp_returns_dict,
             "return_method": return_label,
             "factor_loadings": factor_exps,
-            "asset_loadings": asset_loadings,
-            "portfolio_factor_regression": port_factor_reg,
-            "factor_attribution": attrib,
-            "scenario_results": all_scenario_results,
-            "factor_cumulative_returns": factor_cum_rets,
-            "factor_correlation": factor_corr,
         },
     }
 

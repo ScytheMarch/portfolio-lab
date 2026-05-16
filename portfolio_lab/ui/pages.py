@@ -285,82 +285,6 @@ def render_key_takeaways(takeaways_data: dict[str, Any]):
         st.markdown(f"- {t}")
 
 
-def render_factor_analysis(factor_data: dict[str, Any]):
-    """Render Section 10: Factor Regression Analysis."""
-    st.markdown("### 10. Factor Regression Analysis")
-
-    # Portfolio-level regression summary
-    port_reg = factor_data.get("portfolio_regression")
-    if port_reg:
-        st.markdown("**Portfolio-Level Regression**")
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            alpha_str = f"{port_reg['alpha']*100:.2f}%"
-            if port_reg["alpha_significant"]:
-                st.success(f"Alpha: {alpha_str} (t={port_reg['alpha_t_stat']:.2f}) — Significant")
-            else:
-                st.info(f"Alpha: {alpha_str} (t={port_reg['alpha_t_stat']:.2f}) — Not significant")
-        with col2:
-            st.metric("R-squared", f"{port_reg['r_squared']:.3f}")
-        with col3:
-            st.metric("Observations", f"{port_reg['n_obs']:,}")
-
-        # Factor loadings with t-stats
-        loadings = port_reg["factor_loadings"]
-        t_stats = port_reg["factor_t_stats"]
-        rows = []
-        for f in ["Mkt-RF", "SMB", "HML", "RMW", "CMA"]:
-            beta = loadings.get(f, 0)
-            t = t_stats.get(f, 0)
-            sig = "Yes" if abs(t) > 2.0 else "No"
-            rows.append({
-                "Factor": f,
-                "Beta": f"{beta:.4f}",
-                "t-stat": f"{t:.2f}",
-                "Significant (95%)": sig,
-            })
-        st.dataframe(pd.DataFrame(rows), hide_index=True, use_container_width=True)
-
-    # Per-asset regression table (collapsed)
-    asset_regs = factor_data.get("asset_regressions", [])
-    if asset_regs:
-        with st.expander(f"Per-Asset Factor Regressions ({len(asset_regs)} assets)"):
-            rows = []
-            for reg in asset_regs:
-                row = {
-                    "Ticker": reg["ticker"],
-                    "Alpha (ann.)": f"{reg['alpha']*100:.2f}%",
-                    "Alpha t": f"{reg['alpha_t_stat']:.1f}",
-                    "Mkt-RF": f"{reg.get('Mkt-RF_beta', 0):.3f}",
-                    "SMB": f"{reg.get('SMB_beta', 0):.3f}",
-                    "HML": f"{reg.get('HML_beta', 0):.3f}",
-                    "RMW": f"{reg.get('RMW_beta', 0):.3f}",
-                    "CMA": f"{reg.get('CMA_beta', 0):.3f}",
-                    "R²": f"{reg['r_squared']:.3f}",
-                }
-                rows.append(row)
-            st.dataframe(pd.DataFrame(rows), hide_index=True, use_container_width=True)
-
-    # Factor attribution
-    attrib = factor_data.get("factor_attribution")
-    if attrib:
-        st.markdown("**Factor Return Attribution**")
-        st.caption("How much of the portfolio's historical return came from each factor.")
-        rows = []
-        for factor, contrib in attrib.items():
-            rows.append({"Source": factor, "Contribution": f"{contrib*100:+.2f}%"})
-        st.dataframe(pd.DataFrame(rows), hide_index=True, use_container_width=True)
-
-    # Scenario results
-    scenarios = factor_data.get("scenario_results")
-    if scenarios:
-        st.markdown("**Scenario Analysis**")
-        rows = []
-        for name, ret in scenarios.items():
-            rows.append({"Scenario": name, "Implied Return": f"{ret*100:.2f}%"})
-        st.dataframe(pd.DataFrame(rows), hide_index=True, use_container_width=True)
-
-
 def render_full_report(report: dict[str, Any]):
     """Render the complete post-simulation report."""
     st.header("Post-Simulation Portfolio Breakdown Report")
@@ -389,9 +313,5 @@ def render_full_report(report: dict[str, Any]):
 
     render_stress_flags(report["stress_flags"])
     st.markdown("---")
-
-    if "factor_analysis" in report:
-        render_factor_analysis(report["factor_analysis"])
-        st.markdown("---")
 
     render_key_takeaways(report["key_takeaways"])
